@@ -35,7 +35,7 @@ object FirestoreSerializer {
             is FirestoreValue -> value
             else -> {
                 // Fallback to string representation for unknown types
-                FirestoreValue(stringValue = value.toString())
+                    FirestoreValue(stringValue = value.toString())
             }
         }
     }

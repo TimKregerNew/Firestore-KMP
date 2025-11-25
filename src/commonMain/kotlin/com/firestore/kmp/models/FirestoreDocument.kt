@@ -20,7 +20,8 @@ data class DocumentSnapshot(
     val document: FirestoreDocument?,
     val exists: Boolean,
     val id: String,
-    val path: String
+    val path: String,
+    val error: String? = null
 ) {
     fun <T> get(field: String): T? {
         return document?.fields?.get(field)?.let { value ->

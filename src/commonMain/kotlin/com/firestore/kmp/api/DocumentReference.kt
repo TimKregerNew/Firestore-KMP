@@ -7,6 +7,10 @@ import com.firestore.kmp.serialization.FirestoreSerializer
 import io.ktor.client.call.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.Job
 
 /**
  * A reference to a Firestore document.
@@ -18,6 +22,7 @@ class DocumentReference(
     /**
      * Gets the document data.
      */
+    @Throws(com.firestore.kmp.errors.FirestoreException::class, kotlin.coroutines.cancellation.CancellationException::class)
     suspend fun get(): DocumentSnapshot {
         return try {
             val response: FirestoreDocument = client.get(path)
@@ -42,15 +47,9 @@ class DocumentReference(
                 e.message?.contains("404") == true -> true
                 e.message?.contains("NOT_FOUND") == true -> true
                 else -> {
-                    // Try to check if it's an HTTP client exception
-                    try {
-                        val responseMethod = e.javaClass.methods
-                            .firstOrNull { it.name == "getResponse" || it.name == "response" }
-                        val httpResponse = responseMethod?.invoke(e) as? io.ktor.client.statement.HttpResponse
-                        httpResponse?.status?.value == 404
-                    } catch (ex: Exception) {
-                        false
-                    }
+                    // Check error message for 404 status (works on all platforms)
+                    e.message?.contains("404") == true || 
+                    e.message?.contains("NOT_FOUND") == true
                 }
             }
             
@@ -70,6 +69,7 @@ class DocumentReference(
     /**
      * Sets the document data, overwriting any existing data.
      */
+    @Throws(com.firestore.kmp.errors.FirestoreException::class, kotlin.coroutines.cancellation.CancellationException::class)
     suspend fun set(data: Map<String, Any?>): DocumentSnapshot {
         val fields = FirestoreSerializer.toFirestoreFields(data)
         val document = FirestoreDocument(
@@ -90,6 +90,7 @@ class DocumentReference(
     /**
      * Updates the document with the given fields.
      */
+    @Throws(com.firestore.kmp.errors.FirestoreException::class, kotlin.coroutines.cancellation.CancellationException::class)
     suspend fun update(fields: Map<String, Any?>): WriteResult {
         val firestoreFields = FirestoreSerializer.toFirestoreFields(fields)
         val updateMask = DocumentMask(fieldPaths = fields.keys.toList())
@@ -114,6 +115,7 @@ class DocumentReference(
     /**
      * Deletes the document.
      */
+    @Throws(com.firestore.kmp.errors.FirestoreException::class, kotlin.coroutines.cancellation.CancellationException::class)
     suspend fun delete(): WriteResult {
         val response: FirestoreDocument = client.delete<FirestoreDocument>(path)
         
@@ -124,25 +126,70 @@ class DocumentReference(
     
     /**
      * Listens to real-time updates for this document.
+     * Exceptions are caught and handled internally to prevent crashes in Swift.
      */
     fun snapshots(pollIntervalMs: Long = 2000): Flow<DocumentSnapshot> = flow {
         var lastSnapshot: DocumentSnapshot? = null
         
-        while (true) {
+        // Use isActive to check cancellation - more reliable than ensureActive()
+        val job = currentCoroutineContext()[Job] ?: return@flow
+        while (job.isActive) {
             try {
                 val currentSnapshot = get()
+                
+                // Check cancellation again after network call
+                if (!job.isActive) {
+                    break
+                }
                 
                 // Only emit if the document has changed
                 if (lastSnapshot == null || hasChanged(lastSnapshot, currentSnapshot)) {
                     emit(currentSnapshot)
                     lastSnapshot = currentSnapshot
                 }
-            } catch (e: Exception) {
-                // Emit error or handle as needed
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                // Re-throw cancellation to properly cancel the flow
                 throw e
+            } catch (e: com.firestore.kmp.errors.FirestoreException) {
+                // For FirestoreException, emit an error snapshot so Swift can log it
+                // Create a snapshot that indicates an error occurred
+                val errorSnapshot = DocumentSnapshot(
+                    document = null,
+                    exists = false,
+                    id = id(),
+                    path = path,
+                    error = e.message ?: "Unknown Firestore error"
+                )
+                emit(errorSnapshot)
+                // Also log it for debugging
+                kotlin.io.println("Firestore error in listener: ${e.message}")
+                // Continue polling - don't crash the Flow
+            } catch (e: Exception) {
+                // Wrap other exceptions and handle gracefully
+                val errorSnapshot = DocumentSnapshot(
+                    document = null,
+                    exists = false,
+                    id = id(),
+                    path = path,
+                    error = e.message ?: "Unknown error"
+                )
+                emit(errorSnapshot)
+                kotlin.io.println("Unexpected error in document listener: ${e.message}")
+                // Continue polling - don't crash the Flow
             }
             
-            kotlinx.coroutines.delay(pollIntervalMs)
+            // Check cancellation before delay
+            if (!job.isActive) {
+                break
+            }
+            
+            // Delay and check for cancellation - delay will throw CancellationException if cancelled
+            try {
+                kotlinx.coroutines.delay(pollIntervalMs)
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                // Re-throw cancellation to properly stop the flow
+                throw e
+            }
         }
     }
     

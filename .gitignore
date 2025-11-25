@@ -42,3 +42,20 @@ local.properties
 # OS
 Thumbs.db
 
+# iOS / Xcode
+*.xcworkspace
+!*.xcworkspace/contents.xcworkspacedata
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcworkspace/contents.xcworkspacedata
+**/xcuserdata/
+**/DerivedData/
+**/build/
+**/.build/
+*.xcuserstate
+*.xcuserdatad
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM

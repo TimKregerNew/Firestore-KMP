@@ -6,6 +6,10 @@ import com.firestore.kmp.serialization.FirestoreSerializer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.Job
 
 /**
  * A query for retrieving documents from Firestore.
@@ -116,6 +120,7 @@ class Query(
     /**
      * Executes the query and returns the results.
      */
+    @Throws(com.firestore.kmp.errors.FirestoreException::class, kotlin.coroutines.cancellation.CancellationException::class)
     suspend fun get(): QuerySnapshot {
         val collectionPath = collectionRef.path()
         // For runQuery, the parent is the document path containing this collection
@@ -174,25 +179,78 @@ class Query(
     
     /**
      * Listens to real-time updates for this query.
+     * Exceptions are caught and handled internally to prevent crashes in Swift.
      */
     fun snapshots(pollIntervalMs: Long = 2000): Flow<QuerySnapshot> = flow {
         var lastSnapshot: QuerySnapshot? = null
         
-        while (true) {
+        // Use isActive to check cancellation - more reliable than ensureActive()
+        val job = currentCoroutineContext()[Job] ?: return@flow
+        while (job.isActive) {
             try {
                 val currentSnapshot = get()
+                
+                // Check cancellation again after network call
+                if (!job.isActive) {
+                    break
+                }
                 
                 // Only emit if the query results have changed
                 if (lastSnapshot == null || hasChanged(lastSnapshot, currentSnapshot)) {
                     emit(currentSnapshot)
                     lastSnapshot = currentSnapshot
                 }
-            } catch (e: Exception) {
-                // Emit error or handle as needed
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                // Re-throw cancellation to properly cancel the flow
                 throw e
+            } catch (e: com.firestore.kmp.errors.FirestoreException) {
+                // For FirestoreException, emit an error snapshot so Swift can log it
+                val errorSnapshot = com.firestore.kmp.models.QuerySnapshot(
+                    documents = listOf(
+                        com.firestore.kmp.models.DocumentSnapshot(
+                            document = null,
+                            exists = false,
+                            id = "",
+                            path = collectionRef.path(),
+                            error = e.message ?: "Unknown Firestore error"
+                        )
+                    ),
+                    size = 0
+                )
+                emit(errorSnapshot)
+                kotlin.io.println("Firestore error in query listener: ${e.message}")
+                // Continue polling - don't crash the Flow
+            } catch (e: Exception) {
+                // Wrap other exceptions and handle gracefully
+                val errorSnapshot = com.firestore.kmp.models.QuerySnapshot(
+                    documents = listOf(
+                        com.firestore.kmp.models.DocumentSnapshot(
+                            document = null,
+                            exists = false,
+                            id = "",
+                            path = collectionRef.path(),
+                            error = e.message ?: "Unknown error"
+                        )
+                    ),
+                    size = 0
+                )
+                emit(errorSnapshot)
+                kotlin.io.println("Unexpected error in query listener: ${e.message}")
+                // Continue polling - don't crash the Flow
             }
             
-            delay(pollIntervalMs)
+            // Check cancellation before delay
+            if (!job.isActive) {
+                break
+            }
+            
+            // Delay and check for cancellation - delay will throw CancellationException if cancelled
+            try {
+                delay(pollIntervalMs)
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                // Re-throw cancellation to properly stop the flow
+                throw e
+            }
         }
     }
     
