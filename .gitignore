@@ -1,0 +1,44 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+# Android Studio
+*.apk
+*.ap_
+*.aab
+*.dex
+*.class
+bin/
+gen/
+out/
+release/
+.gradle/
+local.properties
+*.keystore
+!debug.keystore
+
+# macOS
+.DS_Store
+
+# Kotlin
+*.kt.swp
+*.kt~ 
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+
