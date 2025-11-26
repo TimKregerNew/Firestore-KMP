@@ -35,8 +35,10 @@ class DocumentOperationsTest {
                     )
                 }
                 
-                request.url.encodedPath.contains("users/user123") && request.method == HttpMethod.Post -> {
-                    // Create document
+                request.url.encodedPath.contains("users") && 
+                request.url.parameters["documentId"] == "user123" && 
+                request.method == HttpMethod.Post -> {
+                    // Create document - POST to collection with documentId as query parameter
                     val document = MockFirestoreResponses.createDocumentResponse(
                         name = "projects/test-project/databases/(default)/documents/users/user123",
                         fields = mapOf(
