@@ -22,6 +22,7 @@ class CollectionReference(
     /**
      * Adds a document to this collection with an auto-generated ID.
      */
+    @Throws(com.firestore.kmp.errors.FirestoreException::class, kotlin.coroutines.cancellation.CancellationException::class)
     suspend fun add(data: Map<String, Any?>): DocumentSnapshot {
         val documentId = generateDocumentId()
         val documentRef = document(documentId)
@@ -31,6 +32,7 @@ class CollectionReference(
     /**
      * Gets all documents in this collection.
      */
+    @Throws(com.firestore.kmp.errors.FirestoreException::class, kotlin.coroutines.cancellation.CancellationException::class)
     suspend fun get(): QuerySnapshot {
         val query = Query(this, client)
         return query.get()

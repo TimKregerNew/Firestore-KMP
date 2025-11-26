@@ -16,9 +16,27 @@ kotlin {
         }
     }
     
-    iosArm64()
-    iosX64()
-    iosSimulatorArm64()
+    iosArm64 {
+        binaries {
+            framework {
+                baseName = "firestore-kmp"
+            }
+        }
+    }
+    iosX64 {
+        binaries {
+            framework {
+                baseName = "firestore-kmp"
+            }
+        }
+    }
+    iosSimulatorArm64 {
+        binaries {
+            framework {
+                baseName = "firestore-kmp"
+            }
+        }
+    }
     
     sourceSets {
         val commonMain by getting {

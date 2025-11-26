@@ -72,26 +72,43 @@ class FirestoreHttpClient(
             throw e
         } catch (e: io.ktor.serialization.JsonConvertException) {
             // This might be a deserialization error due to error response
-            // Try to extract status from the cause
-            val errorCode = try {
-                var cause: Throwable? = e.cause
-                var foundStatus: Int? = null
-                while (cause != null && foundStatus == null) {
-                    val causeResponse = cause.javaClass.methods
-                        .firstOrNull { it.name == "getResponse" || it.name == "response" }
-                        ?.invoke(cause) as? HttpResponse
-                    foundStatus = causeResponse?.status?.value
-                    if (foundStatus == null) {
-                        cause = cause.cause
+            // Extract status from error message if possible (works on all platforms)
+            val message = e.message
+            val errorCode = if (message == null) {
+                com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
+            } else {
+                val statusPattern = Regex("""\b(40[0-9]|50[0-9]|429|499)\b""")
+                val match = statusPattern.find(message)
+                if (match != null) {
+                    val status = match.value.toIntOrNull()
+                    if (status != null) {
+                        httpStatusToErrorCode(status)
+                    } else {
+                        when {
+                            message.contains("404") || message.contains("NOT_FOUND") -> 
+                                com.firestore.kmp.errors.FirestoreErrorCode.NOT_FOUND
+                            message.contains("403") || message.contains("PERMISSION_DENIED") -> 
+                                com.firestore.kmp.errors.FirestoreErrorCode.PERMISSION_DENIED
+                            message.contains("401") || message.contains("UNAUTHENTICATED") -> 
+                                com.firestore.kmp.errors.FirestoreErrorCode.UNAUTHENTICATED
+                            message.contains("400") || message.contains("INVALID_ARGUMENT") -> 
+                                com.firestore.kmp.errors.FirestoreErrorCode.INVALID_ARGUMENT
+                            else -> com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
+                        }
+                    }
+                } else {
+                    when {
+                        message.contains("404") || message.contains("NOT_FOUND") -> 
+                            com.firestore.kmp.errors.FirestoreErrorCode.NOT_FOUND
+                        message.contains("403") || message.contains("PERMISSION_DENIED") -> 
+                            com.firestore.kmp.errors.FirestoreErrorCode.PERMISSION_DENIED
+                        message.contains("401") || message.contains("UNAUTHENTICATED") -> 
+                            com.firestore.kmp.errors.FirestoreErrorCode.UNAUTHENTICATED
+                        message.contains("400") || message.contains("INVALID_ARGUMENT") -> 
+                            com.firestore.kmp.errors.FirestoreErrorCode.INVALID_ARGUMENT
+                        else -> com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
                     }
                 }
-                if (foundStatus != null) {
-                    httpStatusToErrorCode(foundStatus)
-                } else {
-                    com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
-                }
-            } catch (ex: Exception) {
-                com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
             }
             throw createFirestoreException(
                 errorCode,
@@ -99,34 +116,43 @@ class FirestoreHttpClient(
                 e
             )
         } catch (e: Exception) {
-            val errorCode = try {
-                val responseMethod = e.javaClass.methods
-                    .firstOrNull { it.name == "getResponse" || it.name == "response" }
-                val response = responseMethod?.invoke(e) as? HttpResponse
-                val status = response?.status?.value
-                if (status != null) {
-                    httpStatusToErrorCode(status)
-                } else {
-                    // Check cause chain
-                    var cause: Throwable? = e.cause
-                    var foundStatus: Int? = null
-                    while (cause != null && foundStatus == null) {
-                        val causeResponse = cause.javaClass.methods
-                            .firstOrNull { it.name == "getResponse" || it.name == "response" }
-                            ?.invoke(cause) as? HttpResponse
-                        foundStatus = causeResponse?.status?.value
-                        if (foundStatus == null) {
-                            cause = cause.cause
+            // Extract error code from exception message (works on all platforms)
+            val message = e.message
+            val errorCode = if (message == null) {
+                com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
+            } else {
+                val statusPattern = Regex("""\b(40[0-9]|50[0-9]|429|499)\b""")
+                val match = statusPattern.find(message)
+                if (match != null) {
+                    val status = match.value.toIntOrNull()
+                    if (status != null) {
+                        httpStatusToErrorCode(status)
+                    } else {
+                        when {
+                            message.contains("404") || message.contains("NOT_FOUND") -> 
+                                com.firestore.kmp.errors.FirestoreErrorCode.NOT_FOUND
+                            message.contains("403") || message.contains("PERMISSION_DENIED") -> 
+                                com.firestore.kmp.errors.FirestoreErrorCode.PERMISSION_DENIED
+                            message.contains("401") || message.contains("UNAUTHENTICATED") -> 
+                                com.firestore.kmp.errors.FirestoreErrorCode.UNAUTHENTICATED
+                            message.contains("400") || message.contains("INVALID_ARGUMENT") -> 
+                                com.firestore.kmp.errors.FirestoreErrorCode.INVALID_ARGUMENT
+                            else -> com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
                         }
                     }
-                    if (foundStatus != null) {
-                        httpStatusToErrorCode(foundStatus)
-                    } else {
-                        com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
+                } else {
+                    when {
+                        message.contains("404") || message.contains("NOT_FOUND") -> 
+                            com.firestore.kmp.errors.FirestoreErrorCode.NOT_FOUND
+                        message.contains("403") || message.contains("PERMISSION_DENIED") -> 
+                            com.firestore.kmp.errors.FirestoreErrorCode.PERMISSION_DENIED
+                        message.contains("401") || message.contains("UNAUTHENTICATED") -> 
+                            com.firestore.kmp.errors.FirestoreErrorCode.UNAUTHENTICATED
+                        message.contains("400") || message.contains("INVALID_ARGUMENT") -> 
+                            com.firestore.kmp.errors.FirestoreErrorCode.INVALID_ARGUMENT
+                        else -> com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
                     }
                 }
-            } catch (ex: Exception) {
-                com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
             }
             throw createFirestoreException(
                 errorCode,
@@ -160,10 +186,21 @@ class FirestoreHttpClient(
             
             // Check status before deserializing
             if (response.status.value >= 400) {
+                // Try to read error response body for more details
+                val errorBody = try {
+                    response.body<String>()
+                } catch (e: Exception) {
+                    null
+                }
                 val errorCode = httpStatusToErrorCode(response.status.value)
+                val errorMessage = if (errorBody != null) {
+                    "Firestore request failed with status ${response.status.value}: $errorBody"
+                } else {
+                    "Firestore request failed with status ${response.status.value}"
+                }
                 throw createFirestoreException(
                     errorCode,
-                    "Firestore request failed with status ${response.status.value}",
+                    errorMessage,
                     null
                 )
             }
@@ -172,60 +209,14 @@ class FirestoreHttpClient(
         } catch (e: com.firestore.kmp.errors.FirestoreException) {
             throw e
         } catch (e: io.ktor.serialization.JsonConvertException) {
-            val errorCode = try {
-                var cause: Throwable? = e.cause
-                var foundStatus: Int? = null
-                while (cause != null && foundStatus == null) {
-                    val causeResponse = cause.javaClass.methods
-                        .firstOrNull { it.name == "getResponse" || it.name == "response" }
-                        ?.invoke(cause) as? HttpResponse
-                    foundStatus = causeResponse?.status?.value
-                    if (foundStatus == null) {
-                        cause = cause.cause
-                    }
-                }
-                if (foundStatus != null) {
-                    httpStatusToErrorCode(foundStatus)
-                } else {
-                    com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
-                }
-            } catch (ex: Exception) {
-                com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
-            }
+            val errorCode = extractErrorCodeFromMessageInline(e.message)
             throw createFirestoreException(
                 errorCode,
                 "Firestore request failed: ${e.message}",
                 e
             )
         } catch (e: Exception) {
-            val errorCode = try {
-                val responseMethod = e.javaClass.methods
-                    .firstOrNull { it.name == "getResponse" || it.name == "response" }
-                val response = responseMethod?.invoke(e) as? HttpResponse
-                val status = response?.status?.value
-                if (status != null) {
-                    httpStatusToErrorCode(status)
-                } else {
-                    var cause: Throwable? = e.cause
-                    var foundStatus: Int? = null
-                    while (cause != null && foundStatus == null) {
-                        val causeResponse = cause.javaClass.methods
-                            .firstOrNull { it.name == "getResponse" || it.name == "response" }
-                            ?.invoke(cause) as? HttpResponse
-                        foundStatus = causeResponse?.status?.value
-                        if (foundStatus == null) {
-                            cause = cause.cause
-                        }
-                    }
-                    if (foundStatus != null) {
-                        httpStatusToErrorCode(foundStatus)
-                    } else {
-                        com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
-                    }
-                }
-            } catch (ex: Exception) {
-                com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
-            }
+            val errorCode = extractErrorCodeFromMessageInline(e.message)
             throw createFirestoreException(
                 errorCode,
                 "Firestore request failed: ${e.message}",
@@ -240,7 +231,7 @@ class FirestoreHttpClient(
     suspend inline fun <reified T> patch(
         path: String,
         body: Any? = null,
-        queryParameters: Map<String, String> = emptyMap()
+        queryParameters: Map<String, List<String>> = emptyMap()
     ): T {
         val token = auth.getIdToken()
         val url = if (path.startsWith("http")) path else "$baseUrl/$path"
@@ -249,7 +240,12 @@ class FirestoreHttpClient(
             val response = httpClient.request(url) {
                 method = HttpMethod.Patch
                 token?.let { header(HttpHeaders.Authorization, "Bearer $it") }
-                queryParameters.forEach { (key, value) -> parameter(key, value) }
+                // Handle multiple query parameters with the same name
+                queryParameters.forEach { (key, values) ->
+                    values.forEach { value ->
+                        parameter(key, value)
+                    }
+                }
                 if (body != null) {
                     contentType(ContentType.Application.Json)
                     setBody(body)
@@ -258,10 +254,21 @@ class FirestoreHttpClient(
             
             // Check status before deserializing
             if (response.status.value >= 400) {
+                // Try to read error response body for more details
+                val errorBody = try {
+                    response.body<String>()
+                } catch (e: Exception) {
+                    null
+                }
                 val errorCode = httpStatusToErrorCode(response.status.value)
+                val errorMessage = if (errorBody != null) {
+                    "Firestore request failed with status ${response.status.value}: $errorBody"
+                } else {
+                    "Firestore request failed with status ${response.status.value}"
+                }
                 throw createFirestoreException(
                     errorCode,
-                    "Firestore request failed with status ${response.status.value}",
+                    errorMessage,
                     null
                 )
             }
@@ -270,60 +277,14 @@ class FirestoreHttpClient(
         } catch (e: com.firestore.kmp.errors.FirestoreException) {
             throw e
         } catch (e: io.ktor.serialization.JsonConvertException) {
-            val errorCode = try {
-                var cause: Throwable? = e.cause
-                var foundStatus: Int? = null
-                while (cause != null && foundStatus == null) {
-                    val causeResponse = cause.javaClass.methods
-                        .firstOrNull { it.name == "getResponse" || it.name == "response" }
-                        ?.invoke(cause) as? HttpResponse
-                    foundStatus = causeResponse?.status?.value
-                    if (foundStatus == null) {
-                        cause = cause.cause
-                    }
-                }
-                if (foundStatus != null) {
-                    httpStatusToErrorCode(foundStatus)
-                } else {
-                    com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
-                }
-            } catch (ex: Exception) {
-                com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
-            }
+            val errorCode = extractErrorCodeFromMessageInline(e.message)
             throw createFirestoreException(
                 errorCode,
                 "Firestore request failed: ${e.message}",
                 e
             )
         } catch (e: Exception) {
-            val errorCode = try {
-                val responseMethod = e.javaClass.methods
-                    .firstOrNull { it.name == "getResponse" || it.name == "response" }
-                val response = responseMethod?.invoke(e) as? HttpResponse
-                val status = response?.status?.value
-                if (status != null) {
-                    httpStatusToErrorCode(status)
-                } else {
-                    var cause: Throwable? = e.cause
-                    var foundStatus: Int? = null
-                    while (cause != null && foundStatus == null) {
-                        val causeResponse = cause.javaClass.methods
-                            .firstOrNull { it.name == "getResponse" || it.name == "response" }
-                            ?.invoke(cause) as? HttpResponse
-                        foundStatus = causeResponse?.status?.value
-                        if (foundStatus == null) {
-                            cause = cause.cause
-                        }
-                    }
-                    if (foundStatus != null) {
-                        httpStatusToErrorCode(foundStatus)
-                    } else {
-                        com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
-                    }
-                }
-            } catch (ex: Exception) {
-                com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
-            }
+            val errorCode = extractErrorCodeFromMessageInline(e.message)
             throw createFirestoreException(
                 errorCode,
                 "Firestore request failed: ${e.message}",
@@ -347,8 +308,8 @@ class FirestoreHttpClient(
                 method = HttpMethod.Delete
                 token?.let { header(HttpHeaders.Authorization, "Bearer $it") }
                 queryParameters.forEach { (key, value) -> parameter(key, value) }
-            }
-            
+                }
+                
             // Check status before deserializing
             if (response.status.value >= 400) {
                 val errorCode = httpStatusToErrorCode(response.status.value)
@@ -357,66 +318,20 @@ class FirestoreHttpClient(
                     "Firestore request failed with status ${response.status.value}",
                     null
                 )
-            }
+                }
             
             response.body<T>()
         } catch (e: com.firestore.kmp.errors.FirestoreException) {
             throw e
         } catch (e: io.ktor.serialization.JsonConvertException) {
-            val errorCode = try {
-                var cause: Throwable? = e.cause
-                var foundStatus: Int? = null
-                while (cause != null && foundStatus == null) {
-                    val causeResponse = cause.javaClass.methods
-                        .firstOrNull { it.name == "getResponse" || it.name == "response" }
-                        ?.invoke(cause) as? HttpResponse
-                    foundStatus = causeResponse?.status?.value
-                    if (foundStatus == null) {
-                        cause = cause.cause
-                    }
-                }
-                if (foundStatus != null) {
-                    httpStatusToErrorCode(foundStatus)
-                } else {
-                    com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
-                }
-            } catch (ex: Exception) {
-                com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
-            }
+            val errorCode = extractErrorCodeFromMessageInline(e.message)
             throw createFirestoreException(
                 errorCode,
                 "Firestore request failed: ${e.message}",
                 e
             )
         } catch (e: Exception) {
-            val errorCode = try {
-                val responseMethod = e.javaClass.methods
-                    .firstOrNull { it.name == "getResponse" || it.name == "response" }
-                val response = responseMethod?.invoke(e) as? HttpResponse
-                val status = response?.status?.value
-                if (status != null) {
-                    httpStatusToErrorCode(status)
-                } else {
-                    var cause: Throwable? = e.cause
-                    var foundStatus: Int? = null
-                    while (cause != null && foundStatus == null) {
-                        val causeResponse = cause.javaClass.methods
-                            .firstOrNull { it.name == "getResponse" || it.name == "response" }
-                            ?.invoke(cause) as? HttpResponse
-                        foundStatus = causeResponse?.status?.value
-                        if (foundStatus == null) {
-                            cause = cause.cause
-                        }
-                    }
-                    if (foundStatus != null) {
-                        httpStatusToErrorCode(foundStatus)
-                    } else {
-                        com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
-                    }
-                }
-            } catch (ex: Exception) {
-                com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
-            }
+            val errorCode = extractErrorCodeFromMessageInline(e.message)
             throw createFirestoreException(
                 errorCode,
                 "Firestore request failed: ${e.message}",
@@ -430,6 +345,38 @@ class FirestoreHttpClient(
      */
     fun close() {
         httpClient.close()
+    }
+    
+    /**
+     * Extracts error code from exception message (works on all platforms).
+     * Checks for HTTP status codes in the message.
+     * Inline function so it can be called from inline functions.
+     */
+    public inline fun extractErrorCodeFromMessageInline(message: String?): com.firestore.kmp.errors.FirestoreErrorCode {
+        if (message == null) return com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
+        
+        // Try to find HTTP status code in the message
+        val statusPattern = Regex("""\b(40[0-9]|50[0-9]|429|499)\b""")
+        val match = statusPattern.find(message)
+        if (match != null) {
+            val status = match.value.toIntOrNull()
+            if (status != null) {
+                return httpStatusToErrorCode(status)
+            }
+        }
+        
+        // Check for specific error keywords
+        return when {
+            message.contains("404") || message.contains("NOT_FOUND") -> 
+                com.firestore.kmp.errors.FirestoreErrorCode.NOT_FOUND
+            message.contains("403") || message.contains("PERMISSION_DENIED") -> 
+                com.firestore.kmp.errors.FirestoreErrorCode.PERMISSION_DENIED
+            message.contains("401") || message.contains("UNAUTHENTICATED") -> 
+                com.firestore.kmp.errors.FirestoreErrorCode.UNAUTHENTICATED
+            message.contains("400") || message.contains("INVALID_ARGUMENT") -> 
+                com.firestore.kmp.errors.FirestoreErrorCode.INVALID_ARGUMENT
+            else -> com.firestore.kmp.errors.FirestoreErrorCode.UNKNOWN
+        }
     }
 }
 

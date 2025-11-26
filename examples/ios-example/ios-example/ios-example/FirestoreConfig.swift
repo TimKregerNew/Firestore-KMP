@@ -1,0 +1,20 @@
+import Foundation
+
+struct FirestoreConfig {
+    // TODO: Replace with your Firebase project ID
+    // You can find this in the Firebase Console: Project Settings > General
+    static let projectId = "YOUR_PROJECT_ID"
+    
+    // TODO: Replace with your Firestore database ID
+    // For default database, use "(default)"
+    // For named databases, use the database ID from Firebase Console
+    static let databaseId = "(default)"
+    
+    // Service account access token
+    // Get this token using: python3 get-token.py path/to/service-account-key.json
+    // Token expires after 1 hour, so you'll need to refresh it periodically
+    // TODO: Replace with your service account access token
+    // See examples/ios-example/get-token.py for how to generate one
+    static let serviceAccountToken: String? = nil
+}
+

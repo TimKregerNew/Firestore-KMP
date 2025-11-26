@@ -1,9 +1,12 @@
 package com.firestore.kmp.errors
 
+import kotlin.native.ObjCName
+
 /**
  * Base exception class for Firestore operations.
+ * Made open (instead of sealed) for proper Swift/Objective-C interop.
  */
-sealed class FirestoreException(
+open class FirestoreException(
     message: String,
     val code: FirestoreErrorCode,
     cause: Throwable? = null
