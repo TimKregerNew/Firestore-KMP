@@ -248,5 +248,5 @@ Listeners only emit when data actually changes, making them efficient even with 
 
 ## License
 
-[Add your license here]
+This project is open source and available under the MIT License.
 
