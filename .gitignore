@@ -1,6 +1,8 @@
 # Gradle
 .gradle/
 build/
+**/build/
+**/.builds/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
@@ -42,20 +44,19 @@ local.properties
 # OS
 Thumbs.db
 
-# iOS / Xcode
-*.xcworkspace
-!*.xcworkspace/contents.xcworkspacedata
-*.xcodeproj/*
-!*.xcodeproj/project.pbxproj
-!*.xcodeproj/xcshareddata/
-!*.xcworkspace/contents.xcworkspacedata
-**/xcuserdata/
+# iOS/Xcode
 **/DerivedData/
+**/xcuserdata/
+*.xcworkspace
+*.xcodeproj/project.xcworkspace
+*.xcodeproj/xcuserdata
+*.xcodeproj/xcshareddata
 **/build/
-**/.build/
-*.xcuserstate
-*.xcuserdatad
-*.hmap
-*.ipa
-*.dSYM.zip
-*.dSYM
+**/.builds/
+
+# Firebase/Service Account
+*-firebase-adminsdk-*.json
+**/service-account*.json
+**/*service-account*.json
+firebase-adminsdk*.json
+

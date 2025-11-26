@@ -16,6 +16,14 @@ object FirestoreSerializer {
             is String -> FirestoreValue(stringValue = value)
             is Int -> FirestoreValue(integerValue = value.toString())
             is Long -> FirestoreValue(integerValue = value.toString())
+            is Number -> {
+                // Handle Swift numeric types (Int64, Int32, etc.) that come through as Number
+                when {
+                    value.toLong() == value.toDouble().toLong() -> 
+                        FirestoreValue(integerValue = value.toLong().toString())
+                    else -> FirestoreValue(doubleValue = value.toDouble())
+                }
+            }
             is Double -> FirestoreValue(doubleValue = value)
             is Float -> FirestoreValue(doubleValue = value.toDouble())
             is Boolean -> FirestoreValue(booleanValue = value)

@@ -184,73 +184,103 @@ class Query(
     fun snapshots(pollIntervalMs: Long = 2000): Flow<QuerySnapshot> = flow {
         var lastSnapshot: QuerySnapshot? = null
         
-        // Use isActive to check cancellation - more reliable than ensureActive()
-        val job = currentCoroutineContext()[Job] ?: return@flow
-        while (job.isActive) {
-            try {
-                val currentSnapshot = get()
+        try {
+            while (true) {
+                // Check cancellation at the start of each loop
+                currentCoroutineContext().ensureActive()
                 
-                // Check cancellation again after network call
-                if (!job.isActive) {
-                    break
+                try {
+                    val currentSnapshot = get()
+                    
+                    // Check cancellation after network call
+                    currentCoroutineContext().ensureActive()
+                    
+                    // Always emit to allow FlowCollector to check cancellation
+                    // This ensures cancellation is checked on every poll interval
+                    
+                    // Check cancellation right before emitting - this is critical
+                    currentCoroutineContext().ensureActive()
+                    
+                    try {
+                        emit(currentSnapshot)
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    }
+                    
+                    // Check cancellation after emission - if collector cancelled, this will throw
+                    currentCoroutineContext().ensureActive()
+                    
+                    // Update lastSnapshot for change detection
+                    if (lastSnapshot == null || hasChanged(lastSnapshot, currentSnapshot)) {
+                        lastSnapshot = currentSnapshot
+                    }
+                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                    throw e
+                } catch (e: com.firestore.kmp.errors.FirestoreException) {
+                    // For FirestoreException, emit an error snapshot so Swift can log it
+                    val errorSnapshot = com.firestore.kmp.models.QuerySnapshot(
+                        documents = listOf(
+                            com.firestore.kmp.models.DocumentSnapshot(
+                                document = null,
+                                exists = false,
+                                id = "",
+                                path = collectionRef.path(),
+                                error = e.message ?: "Unknown Firestore error"
+                            )
+                        ),
+                        size = 0
+                    )
+                    emit(errorSnapshot)
+                    currentCoroutineContext().ensureActive()
+                } catch (e: Exception) {
+                    // Wrap other exceptions and handle gracefully
+                    val errorSnapshot = com.firestore.kmp.models.QuerySnapshot(
+                        documents = listOf(
+                            com.firestore.kmp.models.DocumentSnapshot(
+                                document = null,
+                                exists = false,
+                                id = "",
+                                path = collectionRef.path(),
+                                error = e.message ?: "Unknown error"
+                            )
+                        ),
+                        size = 0
+                    )
+                    emit(errorSnapshot)
+                    currentCoroutineContext().ensureActive()
                 }
                 
-                // Only emit if the query results have changed
-                if (lastSnapshot == null || hasChanged(lastSnapshot, currentSnapshot)) {
-                    emit(currentSnapshot)
-                    lastSnapshot = currentSnapshot
+                // Break delay into very small chunks to check cancellation frequently
+                // This ensures cancellation is detected within 50ms
+                val delayChunk = 50L // Check every 50ms for faster cancellation response
+                var remainingDelay = pollIntervalMs
+                
+                while (remainingDelay > 0) {
+                    // Check cancellation before each delay chunk
+                    try {
+                        currentCoroutineContext().ensureActive()
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    }
+                    
+                    val chunkDelay = minOf(delayChunk, remainingDelay)
+                    try {
+                        delay(chunkDelay)
+                        remainingDelay -= chunkDelay
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    }
+                    
+                    // Check cancellation after each delay chunk
+                    try {
+                        currentCoroutineContext().ensureActive()
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    }
                 }
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                // Re-throw cancellation to properly cancel the flow
-                throw e
-            } catch (e: com.firestore.kmp.errors.FirestoreException) {
-                // For FirestoreException, emit an error snapshot so Swift can log it
-                val errorSnapshot = com.firestore.kmp.models.QuerySnapshot(
-                    documents = listOf(
-                        com.firestore.kmp.models.DocumentSnapshot(
-                            document = null,
-                            exists = false,
-                            id = "",
-                            path = collectionRef.path(),
-                            error = e.message ?: "Unknown Firestore error"
-                        )
-                    ),
-                    size = 0
-                )
-                emit(errorSnapshot)
-                kotlin.io.println("Firestore error in query listener: ${e.message}")
-                // Continue polling - don't crash the Flow
-            } catch (e: Exception) {
-                // Wrap other exceptions and handle gracefully
-                val errorSnapshot = com.firestore.kmp.models.QuerySnapshot(
-                    documents = listOf(
-                        com.firestore.kmp.models.DocumentSnapshot(
-                            document = null,
-                            exists = false,
-                            id = "",
-                            path = collectionRef.path(),
-                            error = e.message ?: "Unknown error"
-                        )
-                    ),
-                    size = 0
-                )
-                emit(errorSnapshot)
-                kotlin.io.println("Unexpected error in query listener: ${e.message}")
-                // Continue polling - don't crash the Flow
             }
-            
-            // Check cancellation before delay
-            if (!job.isActive) {
-                break
-            }
-            
-            // Delay and check for cancellation - delay will throw CancellationException if cancelled
-            try {
-                delay(pollIntervalMs)
-            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                // Re-throw cancellation to properly stop the flow
-                throw e
-            }
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
         }
     }
     

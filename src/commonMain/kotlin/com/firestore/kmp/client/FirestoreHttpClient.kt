@@ -186,10 +186,21 @@ class FirestoreHttpClient(
             
             // Check status before deserializing
             if (response.status.value >= 400) {
+                // Try to read error response body for more details
+                val errorBody = try {
+                    response.body<String>()
+                } catch (e: Exception) {
+                    null
+                }
                 val errorCode = httpStatusToErrorCode(response.status.value)
+                val errorMessage = if (errorBody != null) {
+                    "Firestore request failed with status ${response.status.value}: $errorBody"
+                } else {
+                    "Firestore request failed with status ${response.status.value}"
+                }
                 throw createFirestoreException(
                     errorCode,
-                    "Firestore request failed with status ${response.status.value}",
+                    errorMessage,
                     null
                 )
             }
@@ -220,7 +231,7 @@ class FirestoreHttpClient(
     suspend inline fun <reified T> patch(
         path: String,
         body: Any? = null,
-        queryParameters: Map<String, String> = emptyMap()
+        queryParameters: Map<String, List<String>> = emptyMap()
     ): T {
         val token = auth.getIdToken()
         val url = if (path.startsWith("http")) path else "$baseUrl/$path"
@@ -229,7 +240,12 @@ class FirestoreHttpClient(
             val response = httpClient.request(url) {
                 method = HttpMethod.Patch
                 token?.let { header(HttpHeaders.Authorization, "Bearer $it") }
-                queryParameters.forEach { (key, value) -> parameter(key, value) }
+                // Handle multiple query parameters with the same name
+                queryParameters.forEach { (key, values) ->
+                    values.forEach { value ->
+                        parameter(key, value)
+                    }
+                }
                 if (body != null) {
                     contentType(ContentType.Application.Json)
                     setBody(body)
@@ -238,10 +254,21 @@ class FirestoreHttpClient(
             
             // Check status before deserializing
             if (response.status.value >= 400) {
+                // Try to read error response body for more details
+                val errorBody = try {
+                    response.body<String>()
+                } catch (e: Exception) {
+                    null
+                }
                 val errorCode = httpStatusToErrorCode(response.status.value)
+                val errorMessage = if (errorBody != null) {
+                    "Firestore request failed with status ${response.status.value}: $errorBody"
+                } else {
+                    "Firestore request failed with status ${response.status.value}"
+                }
                 throw createFirestoreException(
                     errorCode,
-                    "Firestore request failed with status ${response.status.value}",
+                    errorMessage,
                     null
                 )
             }
@@ -281,8 +308,8 @@ class FirestoreHttpClient(
                 method = HttpMethod.Delete
                 token?.let { header(HttpHeaders.Authorization, "Bearer $it") }
                 queryParameters.forEach { (key, value) -> parameter(key, value) }
-            }
-            
+                }
+                
             // Check status before deserializing
             if (response.status.value >= 400) {
                 val errorCode = httpStatusToErrorCode(response.status.value)
@@ -291,7 +318,7 @@ class FirestoreHttpClient(
                     "Firestore request failed with status ${response.status.value}",
                     null
                 )
-            }
+                }
             
             response.body<T>()
         } catch (e: com.firestore.kmp.errors.FirestoreException) {

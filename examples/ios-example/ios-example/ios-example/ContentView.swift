@@ -19,6 +19,32 @@ struct ContentView: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(8)
                 
+                // Collection and Document ID inputs
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Collection & Document")
+                        .font(.headline)
+                        .padding(.horizontal)
+                    
+                    VStack(spacing: 8) {
+                        HStack {
+                            Text("Collection:")
+                                .frame(width: 100, alignment: .leading)
+                            TextField("test-collection", text: $viewModel.collectionPath)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                        }
+                        
+                        HStack {
+                            Text("Document ID:")
+                                .frame(width: 100, alignment: .leading)
+                            TextField("user123", text: $viewModel.documentId)
+                                .textFieldStyle(RoundedBorderTextFieldStyle())
+                        }
+                    }
+                    .padding()
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+                }
+                
                 // Action buttons
                 VStack(spacing: 12) {
                     ActionButton(title: "Create Document", action: viewModel.createDocument)
@@ -34,34 +60,31 @@ struct ContentView: View {
                 
                 // Log view
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Log")
-                        .font(.headline)
-                        .padding(.horizontal)
-                    
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 4) {
-                                ForEach(viewModel.logMessages.indices, id: \.self) { index in
-                                    Text(viewModel.logMessages[index])
-                                        .font(.system(.caption, design: .monospaced))
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 2)
-                                }
-                            }
-                            .padding(.vertical, 4)
+                    HStack {
+                        Text("Log")
+                            .font(.headline)
+                        Spacer()
+                        Button(action: {
+                            viewModel.clearLogs()
+                        }) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 16))
                         }
-                        .frame(maxHeight: 300)
-                        .background(Color(.systemGray6))
-                        .cornerRadius(8)
-                        .onChange(of: viewModel.logMessages.count) { _ in
-                            if let lastIndex = viewModel.logMessages.indices.last {
-                                withAnimation {
-                                    proxy.scrollTo(lastIndex, anchor: .bottom)
-                                }
-                            }
-                        }
+                        .buttonStyle(.plain)
                     }
+                    .padding(.horizontal)
+                    
+                    ScrollView {
+                        Text(viewModel.logMessages.joined(separator: "\n"))
+                            .font(.system(.caption, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                    }
+                    .frame(maxHeight: 300)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
                 }
                 
                 Spacer()
