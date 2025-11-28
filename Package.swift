@@ -18,7 +18,7 @@ let package = Package(
     targets: [
         .binaryTarget(
             name: "FirestoreKMP",
-            path: "build/xcframework/firestore-kmp.xcframework"
+            path: "frameworks/firestore-kmp.xcframework"
         )
     ]
 )

@@ -19,11 +19,14 @@ echo "Step 1: Building release frameworks..."
     linkReleaseFrameworkIosSimulatorArm64
 
 FRAMEWORK_NAME="firestore_kmp"
-XCFRAMEWORK_PATH="$SCRIPT_DIR/build/xcframework/firestore-kmp.xcframework"
+BUILD_XCFRAMEWORK_PATH="$SCRIPT_DIR/build/xcframework/firestore-kmp.xcframework"
+DIST_XCFRAMEWORK_PATH="$SCRIPT_DIR/frameworks/firestore-kmp.xcframework"
 
-# Clean previous XCFramework
-rm -rf "$XCFRAMEWORK_PATH"
-mkdir -p "$(dirname "$XCFRAMEWORK_PATH")"
+# Clean previous XCFrameworks
+rm -rf "$BUILD_XCFRAMEWORK_PATH"
+rm -rf "$DIST_XCFRAMEWORK_PATH"
+mkdir -p "$(dirname "$BUILD_XCFRAMEWORK_PATH")"
+mkdir -p "$(dirname "$DIST_XCFRAMEWORK_PATH")"
 
 # Paths to individual frameworks
 IOS_ARM64_FRAMEWORK="$SCRIPT_DIR/build/bin/iosArm64/releaseFramework/${FRAMEWORK_NAME}.framework"
@@ -54,13 +57,18 @@ echo "Step 3: Creating XCFramework..."
 xcodebuild -create-xcframework \
     -framework "$IOS_ARM64_FRAMEWORK" \
     -framework "$UNIVERSAL_SIMULATOR_FRAMEWORK" \
-    -output "$XCFRAMEWORK_PATH"
+    -output "$BUILD_XCFRAMEWORK_PATH"
+
+# Copy XCFramework to distribution directory
+echo ""
+echo "Step 4: Copying XCFramework to distribution directory..."
+cp -R "$BUILD_XCFRAMEWORK_PATH" "$DIST_XCFRAMEWORK_PATH"
 
 echo ""
 echo "✅ XCFramework created successfully!"
-echo "Location: $XCFRAMEWORK_PATH"
+echo "Build location: $BUILD_XCFRAMEWORK_PATH"
+echo "Distribution location: $DIST_XCFRAMEWORK_PATH"
 echo ""
-echo "You can now use this XCFramework in your Swift Package Manager Package.swift:"
-echo "  .binaryTarget(name: \"FirestoreKMP\", path: \"firestore-kmp.xcframework\")"
+echo "The XCFramework in 'frameworks/' is ready for Swift Package Manager distribution."
 echo ""
 

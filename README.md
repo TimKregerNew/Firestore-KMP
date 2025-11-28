@@ -33,7 +33,7 @@ dependencies {
    ```bash
    ./build-xcframework.sh
    ```
-   This creates the XCFramework at `build/xcframework/firestore-kmp.xcframework`
+   This creates the XCFramework at `frameworks/firestore-kmp.xcframework`
 
 2. **Add to your Xcode project:**
    - In Xcode, go to **File → Add Package Dependencies...**
@@ -86,7 +86,7 @@ The XCFramework can be built using either:
   ./gradlew createXCFramework
   ```
 
-Both methods will create the XCFramework at `build/xcframework/firestore-kmp.xcframework`.
+Both methods will create the XCFramework at `frameworks/firestore-kmp.xcframework` (for distribution) and `build/xcframework/firestore-kmp.xcframework` (temporary build location).
 
 **For GitHub distribution:** The XCFramework is automatically built and committed via GitHub Actions when you create a version tag. See [RELEASES.md](RELEASES.md) for details.
 
