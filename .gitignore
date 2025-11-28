@@ -6,6 +6,9 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
+# Allow XCFramework for SPM distribution
+!build/xcframework/
+!build/xcframework/**/*.xcframework
 
 # IDEs
 .idea/

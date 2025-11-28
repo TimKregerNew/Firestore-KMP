@@ -15,6 +15,8 @@ A Kotlin Multiplatform library for accessing Firestore databases via REST API, s
 
 ## Setup
 
+### Android / Kotlin Multiplatform
+
 Add the library to your project's `build.gradle.kts`:
 
 ```kotlin
@@ -22,6 +24,71 @@ dependencies {
     implementation("com.firestore:kmp:1.0.0")
 }
 ```
+
+### iOS (Swift Package Manager)
+
+#### Option 1: Local Package (Development)
+
+1. **Build the XCFramework:**
+   ```bash
+   ./build-xcframework.sh
+   ```
+   This creates the XCFramework at `build/xcframework/firestore-kmp.xcframework`
+
+2. **Add to your Xcode project:**
+   - In Xcode, go to **File → Add Package Dependencies...**
+   - Click **"Add Local..."**
+   - Select the root directory of this repository
+   - Xcode will detect the `Package.swift` file
+
+3. **Import in Swift:**
+   ```swift
+   import FirestoreKMP
+   ```
+
+#### Option 2: GitHub Distribution (Recommended)
+
+The package is available via Swift Package Manager from GitHub:
+
+1. **Add to your Xcode project:**
+   - In Xcode, go to **File → Add Package Dependencies...**
+   - Enter the repository URL: `https://github.com/TimKregerNew/Firestore-KMP.git`
+   - Select the version (e.g., `1.0.0`) or branch
+   - Click "Add Package"
+   - Select the "FirestoreKMP" product
+   - Click "Add Package"
+
+2. **Or add via Package.swift:**
+   ```swift
+   dependencies: [
+       .package(url: "https://github.com/TimKregerNew/Firestore-KMP.git", from: "1.0.0")
+   ]
+   ```
+
+3. **Import in Swift:**
+   ```swift
+   import FirestoreKMP
+   ```
+
+**Note:** The XCFramework is automatically built and committed to the repository via GitHub Actions. See [RELEASES.md](RELEASES.md) for release information.
+
+#### Building the XCFramework
+
+The XCFramework can be built using either:
+
+- **Script (recommended):**
+  ```bash
+  ./build-xcframework.sh
+  ```
+
+- **Gradle task:**
+  ```bash
+  ./gradlew createXCFramework
+  ```
+
+Both methods will create the XCFramework at `build/xcframework/firestore-kmp.xcframework`.
+
+**For GitHub distribution:** The XCFramework is automatically built and committed via GitHub Actions when you create a version tag. See [RELEASES.md](RELEASES.md) for details.
 
 ## Usage
 
