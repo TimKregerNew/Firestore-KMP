@@ -178,3 +178,5 @@ viewModelScope.launch {
 - The listener uses coroutine cancellation for reliable stopping
 - Check the logs for cancellation messages
 
+
+
