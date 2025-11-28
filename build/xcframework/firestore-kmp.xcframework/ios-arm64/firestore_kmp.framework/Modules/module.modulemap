@@ -1,0 +1,8 @@
+framework module firestore_kmp {
+    umbrella header "firestore_kmp.h"
+
+    export *
+    module * { export * }
+
+    use Foundation
+}

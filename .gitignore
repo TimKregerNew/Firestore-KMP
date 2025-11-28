@@ -1,14 +1,14 @@
 # Gradle
 .gradle/
 build/
+# Allow XCFramework for SPM (exception must come before **/build/)
+!build/xcframework/
+!build/xcframework/**
 **/build/
 **/.builds/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
-# Allow XCFramework for SPM distribution
-!build/xcframework/
-!build/xcframework/**/*.xcframework
 
 # IDEs
 .idea/
@@ -55,7 +55,11 @@ Thumbs.db
 *.xcodeproj/project.xcworkspace
 *.xcodeproj/xcuserdata
 *.xcodeproj/xcshareddata
-**/build/
+# Build directories (but allow XCFramework)
+build/**
+!build/xcframework
+build/xcframework/**
+!build/xcframework/**
 **/.build/
 **/.builds/
 
