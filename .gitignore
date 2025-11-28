@@ -1,9 +1,6 @@
 # Gradle
 .gradle/
 build/
-# Allow XCFramework for SPM (exception must come before **/build/)
-!build/xcframework/
-!build/xcframework/**
 **/build/
 **/.builds/
 !gradle/wrapper/gradle-wrapper.jar
@@ -55,13 +52,11 @@ Thumbs.db
 *.xcodeproj/project.xcworkspace
 *.xcodeproj/xcuserdata
 *.xcodeproj/xcshareddata
-# Build directories (but allow XCFramework)
-build/**
-!build/xcframework
-build/xcframework/**
-!build/xcframework/**
 **/.build/
 **/.builds/
+
+# Distribution artifacts (committed for SPM)
+# frameworks/ directory contains XCFramework for Swift Package Manager
 
 # Firebase/Service Account
 *-firebase-adminsdk-*.json

@@ -79,8 +79,10 @@ dependencies: [
 
 The XCFramework is committed to the repository at:
 ```
-build/xcframework/firestore-kmp.xcframework
+frameworks/firestore-kmp.xcframework
 ```
+
+**Note:** The XCFramework is built in `build/xcframework/` but copied to `frameworks/` for distribution to avoid committing the entire build directory.
 
 This allows Swift Package Manager to resolve the package directly from the GitHub repository without requiring a separate download.
 

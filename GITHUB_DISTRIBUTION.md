@@ -7,14 +7,12 @@ This guide walks through everything required to distribute the Firestore KMP lib
 ### 1. Package.swift
 - Located at the root of the repository
 - Defines the Swift package with iOS 13+ support
-- References the XCFramework at `build/xcframework/firestore-kmp.xcframework`
+- References the XCFramework at `frameworks/firestore-kmp.xcframework`
 
 ### 2. .gitignore Updates
-- Added exceptions to allow XCFramework to be committed:
-  ```
-  !build/xcframework/
-  !build/xcframework/**/*.xcframework
-  ```
+- The `frameworks/` directory is not in `.gitignore`
+- Only the `build/` directory is ignored (to avoid committing build artifacts)
+- The XCFramework is copied from `build/xcframework/` to `frameworks/` for distribution
 
 ### 3. GitHub Actions Workflow
 - **File:** `.github/workflows/build-xcframework.yml`
@@ -38,7 +36,7 @@ This guide walks through everything required to distribute the Firestore KMP lib
 1. **Ensure XCFramework is built and committed:**
    ```bash
    ./build-xcframework.sh
-   git add build/xcframework/firestore-kmp.xcframework
+   git add frameworks/firestore-kmp.xcframework
    git commit -m "chore: add XCFramework for SPM distribution"
    git push
    ```
@@ -83,7 +81,7 @@ This guide walks through everything required to distribute the Firestore KMP lib
 
 2. **Commit XCFramework:**
    ```bash
-   git add build/xcframework/firestore-kmp.xcframework
+   git add frameworks/firestore-kmp.xcframework
    git commit -m "chore: update XCFramework for v1.0.0"
    git push
    ```
@@ -122,11 +120,11 @@ Users can verify the package works by:
 
 ```bash
 # Check XCFramework exists
-ls -la build/xcframework/firestore-kmp.xcframework/
+ls -la frameworks/firestore-kmp.xcframework/
 
 # Verify architectures
-lipo -info build/xcframework/firestore-kmp.xcframework/ios-arm64/firestore_kmp.framework/firestore_kmp
-lipo -info build/xcframework/firestore-kmp.xcframework/ios-arm64_x86_64-simulator/firestore_kmp.framework/firestore_kmp
+lipo -info frameworks/firestore-kmp.xcframework/ios-arm64/firestore_kmp.framework/firestore_kmp
+lipo -info frameworks/firestore-kmp.xcframework/ios-arm64_x86_64-simulator/firestore_kmp.framework/firestore_kmp
 ```
 
 ## 📦 User Installation
