@@ -20,6 +20,7 @@ kotlin {
         binaries {
             framework {
                 baseName = "firestore-kmp"
+                isStatic = false
             }
         }
     }
@@ -27,6 +28,7 @@ kotlin {
         binaries {
             framework {
                 baseName = "firestore-kmp"
+                isStatic = false
             }
         }
     }
@@ -34,6 +36,7 @@ kotlin {
         binaries {
             framework {
                 baseName = "firestore-kmp"
+                isStatic = false
             }
         }
     }
@@ -90,6 +93,20 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
+    }
+}
+
+// Task to create XCFramework for Swift Package Manager
+// This task runs the build-xcframework.sh script
+tasks.register<Exec>("createXCFramework") {
+    group = "build"
+    description = "Creates XCFramework for iOS distribution via Swift Package Manager"
+    
+    val scriptPath = file("build-xcframework.sh")
+    commandLine("bash", scriptPath.absolutePath)
+    
+    doLast {
+        println("XCFramework created at: $buildDir/xcframework/firestore-kmp.xcframework")
     }
 }
 
